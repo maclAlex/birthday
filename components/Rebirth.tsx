@@ -115,17 +115,35 @@ const WISHES = ['这一岁，累了有地方歇', '这一岁，高兴时有人�
 
 const LYRICS = ['祝你生日快乐', '祝你生日快乐', '祝你生日快乐', '祝你永远快乐'];
 
+const TRACKS = [
+  { id: 'serenade', name: '生日小夜曲', file: 'a-birthday-serenade.mp3' },
+  { id: 'box', name: '八音盒', file: 'music-box-birthday.mp3' },
+  { id: 'breeze', name: '海边微风', file: 'bayside-breeze.mp3' },
+];
+
 function createPlayer() {
   const base = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/';
-  const audio = new Audio(`${base}music-box-birthday.mp3`);
+  const audio = new Audio();
   audio.loop = true;
   audio.volume = 0.45;
+  let current = '';
+  const load = (file: string) => {
+    if (current === file) return;
+    current = file;
+    audio.src = `${base}${file}`;
+  };
+  load(TRACKS[0].file);
   return {
     async start() {
       await audio.play();
     },
     stop() {
       audio.pause();
+    },
+    async use(file: string) {
+      const playing = !audio.paused;
+      load(file);
+      if (playing) await audio.play();
     },
   };
 }
@@ -420,6 +438,7 @@ const Rebirth: React.FC = () => {
   const [album, setAlbum] = useState<EndingId[]>(() => loadAlbum());
   const [steps, setSteps] = useState(1);
   const [musicOn, setMusicOn] = useState(false);
+  const [trackId, setTrackId] = useState(TRACKS[0].id);
   const [notice, setNotice] = useState('');
   const musicBlock = useRef(false);
   const holdFrame = useRef(0);
@@ -510,6 +529,14 @@ const Rebirth: React.FC = () => {
     setMusicOn(true);
   };
 
+  const chooseTrack = async (id: string, file: string) => {
+    setTrackId(id);
+    musicBlock.current = false;
+    await playerRef.current?.use(file);
+    await playerRef.current?.start();
+    setMusicOn(true);
+  };
+
   const startHold = () => {
     const begun = performance.now();
     const step = (now: number) => {
@@ -550,6 +577,22 @@ const Rebirth: React.FC = () => {
             {musicOn ? '音乐开着' : '打开音乐'}
           </button>
         </header>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {TRACKS.map((track) => (
+            <button
+              key={track.id}
+              type="button"
+              onClick={() => chooseTrack(track.id, track.file)}
+              className={`rounded-full border px-3 py-2 text-xs ${
+                trackId === track.id && musicOn
+                  ? 'border-[#e7c98a] bg-[#e7c98a]/20 text-[#e7c98a]'
+                  : 'border-white/15 bg-black/30 text-white/70'
+              }`}
+            >
+              {track.name}
+            </button>
+          ))}
+        </div>
 
         {keeps.length > 0 && (
           <p className="mb-4 text-xs leading-6 text-[#e7c98a]/80">今天带着：{keeps.join(' · ')}</p>
