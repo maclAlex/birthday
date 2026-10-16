@@ -7,8 +7,6 @@ import { gsap } from 'gsap';
 import { Landmark, Results } from '../types';
 
 const PARTICLE_COUNT = 5000;
-const TREE_HEIGHT = 25;
-const TREE_RADIUS = 10;
 
 // Custom Shader Material for glowing golden particles
 const particleVertexShader = `
@@ -80,7 +78,7 @@ const GestureTree: React.FC = () => {
   const [cameraStatus, setCameraStatus] = useState<'LOADING' | 'ACTIVE' | 'ERROR'>('LOADING');
   const [interactionState, setInteractionState] = useState<'IDLE' | 'PINCHING'>('IDLE');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [currentTheme, setCurrentTheme] = useState<string>('经典圣诞');
+  const [currentTheme, setCurrentTheme] = useState<string>('生日暖金');
 
   // Logic Refs
   const isPinchingRef = useRef(false);
@@ -93,6 +91,8 @@ const GestureTree: React.FC = () => {
   const wasTwoFingersRef = useRef(false);
   const wasThreeFingersRef = useRef(false);
   const isSnowingRef = useRef(false);
+  const manualModeRef = useRef<'gesture' | 'gather' | 'scatter'>('gesture');
+  const commandRef = useRef<string | null>(null);
   
   // Three.js Refs
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -120,28 +120,30 @@ const GestureTree: React.FC = () => {
 
     // Scene Setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
-    scene.fog = new THREE.FogExp2(0x000000, 0.02);
+ scene.background = new THREE.Color(0x0a1216);
+ scene.fog = new THREE.FogExp2(0x0a1216, 0.02);
     sceneRef.current = scene;
 
+    const portrait = window.innerHeight > window.innerWidth;
     const camera = new THREE.PerspectiveCamera(
-      60,
+      portrait ? 68 : 60,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 0, 35); 
+    camera.position.set(0, 0, portrait ? 46 : 35);
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ 
-      antialias: true,
+    const narrow = window.matchMedia('(max-width: 768px)').matches;
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !narrow,
       powerPreference: 'high-performance',
         alpha: false, 
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, narrow ? 1.25 : 2));
+    renderer.setClearColor(0x0a1216);
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -152,9 +154,9 @@ const GestureTree: React.FC = () => {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      2.2, // strength (increased for more golden glow)
-      0.5, // radius (slightly increased for wider glow)
-      0.7 // threshold (lowered to catch more particles)
+      narrow ? 1.15 : 2.2,
+      0.45,
+      0.72
     );
     composer.addPass(bloomPass);
     composerRef.current = composer;
@@ -169,69 +171,37 @@ const GestureTree: React.FC = () => {
     const sizes = new Float32Array(PARTICLE_COUNT);
     const alphas = new Float32Array(PARTICLE_COUNT);
     
-    const colorGold = new THREE.Color(0xFFD700);
-    const colorWhite = new THREE.Color(0xFFFFFF);
-    const colorRed = new THREE.Color(0xFF6B6B);
-    const colorGreen = new THREE.Color(0x4ECDC4);
+    const colorGold = new THREE.Color(0xf0b35a);
+    const colorCream = new THREE.Color(0xf2ebe0);
+    const colorEmber = new THREE.Color(0xff8a3d);
+    const colorRose = new THREE.Color(0xe07a78);
     const tempColor = new THREE.Color();
 
     // Initialize particle positions and targets
     for (let i = 0; i < PARTICLE_COUNT; i++) {
         const i3 = i * 3;
 
-      // Tree Shape: Linear Cone with Volume-based Density Distribution
-      const randomCheck = Math.random();
-      const layerPct = (i / PARTICLE_COUNT);
-      
-      if (randomCheck > (1 - layerPct * 0.7)) {
-        const redistributedPct = Math.random() * 0.5;
-        const actualLayerPct = redistributedPct;
-        const layerIndex = Math.floor(actualLayerPct * 12);
-        const normalizedY = layerIndex / 12;
-        
-        const linearFactor = 1 - normalizedY;
-        const curvedFactor = Math.pow(1 - normalizedY, 1.3);
-        const layerRadiusMax = TREE_RADIUS * (linearFactor * 0.8 + curvedFactor * 0.2);
-        
-        const GOLDEN_ANGLE = 2.399963229728653;
-        const angle = i * GOLDEN_ANGLE;
-        const r = layerRadiusMax * Math.sqrt(Math.random());
-        
-        let y = -TREE_HEIGHT / 2 + (normalizedY * TREE_HEIGHT);
-        const droop = r * 0.4;
-        y -= droop;
-        
-        const yRandomness = (Math.random() - 0.5) * 0.6;
-        const depthJitter = (Math.random() - 0.5) * (0.8 + normalizedY * 1.2);
-        
-        targetTree[i3] = Math.cos(angle) * r + depthJitter * 0.3;
-        targetTree[i3 + 1] = y + yRandomness;
-        targetTree[i3 + 2] = Math.sin(angle) * r + depthJitter * 0.3;
+      // Birthday cake: two tiers, candles on top
+      const portion = i / PARTICLE_COUNT;
+      const goldenAngle = 2.399963229728653;
+      if (portion < 0.1) {
+        const candleCount = 7;
+        const candle = i % candleCount;
+        const angle = (candle / candleCount) * Math.PI * 2;
+        const candleRadius = 3.4;
+        targetTree[i3] = Math.cos(angle) * candleRadius + (Math.random() - 0.5) * 0.28;
+        targetTree[i3 + 1] = 2.2 + Math.random() * 5.2;
+        targetTree[i3 + 2] = Math.sin(angle) * candleRadius + (Math.random() - 0.5) * 0.28;
       } else {
-        const layerIndex = Math.floor(layerPct * 12);
-        const normalizedY = layerIndex / 12;
-        
-        const linearFactor = 1 - normalizedY;
-        const curvedFactor = Math.pow(1 - normalizedY, 1.3);
-        const layerRadiusMax = TREE_RADIUS * (linearFactor * 0.8 + curvedFactor * 0.2);
-        
-        const minRadius = 0.2;
-        const finalRadius = Math.max(minRadius, layerRadiusMax);
-        
-        const GOLDEN_ANGLE = 2.399963229728653;
-        const angle = i * GOLDEN_ANGLE;
-        const r = finalRadius * Math.sqrt(Math.random());
-        
-        let y = -TREE_HEIGHT / 2 + (normalizedY * TREE_HEIGHT);
-        const droop = r * 0.4;
-        y -= droop;
-        
-        const yRandomness = (Math.random() - 0.5) * 0.6;
-        const depthJitter = (Math.random() - 0.5) * (0.8 + normalizedY * 1.2);
-        
-        targetTree[i3] = Math.cos(angle) * r + depthJitter * 0.3;
-        targetTree[i3 + 1] = y + yRandomness;
-        targetTree[i3 + 2] = Math.sin(angle) * r + depthJitter * 0.3;
+        const topTier = portion > 0.64;
+        const radius = topTier ? 6.4 : 10.2;
+        const y0 = topTier ? -1.4 : -8.4;
+        const height = topTier ? 3.5 : 6.4;
+        const angle = i * goldenAngle;
+        const r = radius * Math.sqrt(Math.random());
+        targetTree[i3] = Math.cos(angle) * r;
+        targetTree[i3 + 1] = y0 + Math.random() * height;
+        targetTree[i3 + 2] = Math.sin(angle) * r;
       }
 
       // Exploded State (3D Noise Distribution)
@@ -254,16 +224,15 @@ const GestureTree: React.FC = () => {
       velocities[i3 + 1] = 0;
       velocities[i3 + 2] = 0;
 
-      // Colors (Christmas theme - balanced distribution)
-        const rand = Math.random();
-      if (rand > 0.7) {
-        tempColor.copy(colorWhite).multiplyScalar(1.3);
-      } else if (rand > 0.4) {
-        tempColor.copy(colorGold).multiplyScalar(1.5);
-      } else if (rand > 0.25) {
-        tempColor.copy(colorRed).multiplyScalar(1.2);
+      const rand = Math.random();
+      if (portion < 0.1 && rand > 0.35) {
+        tempColor.copy(colorEmber).multiplyScalar(1.35);
+      } else if (rand > 0.72) {
+        tempColor.copy(colorCream).multiplyScalar(1.15);
+      } else if (rand > 0.38) {
+        tempColor.copy(colorGold).multiplyScalar(1.35);
       } else {
-        tempColor.copy(colorGreen);
+        tempColor.copy(colorRose).multiplyScalar(1.15);
       }
 
         colors[i3] = tempColor.r;
@@ -299,8 +268,7 @@ const GestureTree: React.FC = () => {
     // Group for rotation
     const treeGroup = new THREE.Group();
     treeGroup.add(particles);
-    // 向上移动整棵树，上下都留有空白
-    treeGroup.position.y = 2; // 向上移动2个单位，上下平衡
+    treeGroup.position.y = 2;
     scene.add(treeGroup);
     treeGroupRef.current = treeGroup;
 
@@ -312,7 +280,7 @@ const GestureTree: React.FC = () => {
     sizesRef.current = sizes;
     alphasRef.current = alphas;
 
-    // Star Sprite (brighter at tree top)
+    // Candle flame above the cake
     const starCanvas = document.createElement('canvas');
     starCanvas.width = 128;
     starCanvas.height = 128;
@@ -334,22 +302,18 @@ const GestureTree: React.FC = () => {
     });
     const star = new THREE.Sprite(starMaterial);
     star.scale.set(0, 0, 1);
-    star.position.set(0, TREE_HEIGHT / 2 + 0.5, 0);
+    star.position.set(0, 8.2, 0);
     treeGroup.add(star);
     starRef.current = star;
 
-    // Tree Trunk (长度9，明显可见)
-    // 高度 9，从树底部向下延伸
-    const trunkGeometry = new THREE.CylinderGeometry(1.0, 1.6, 9, 16);
+    const trunkGeometry = new THREE.CylinderGeometry(11.2, 11.6, 0.55, 48);
     const trunkMaterial = new THREE.MeshStandardMaterial({
-      color: 0x4A2511, // 深棕色
-      roughness: 0.9,
-      metalness: 0.1,
+      color: 0xe7d3b0,
+      roughness: 0.55,
+      metalness: 0.08,
     });
     const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-    // 位置：树底部在 -12.5，树干高度9，中心在 -12.5 - 4.5 = -17
-    // 树干从 -21.5 延伸到 -12.5（刚好连接树底部）
-    trunk.position.set(0, -TREE_HEIGHT / 2 - 4.5, 0);
+    trunk.position.set(0, -8.7, 0);
     trunk.visible = false;
     treeGroup.add(trunk);
     trunkRef.current = trunk;
@@ -375,8 +339,8 @@ const GestureTree: React.FC = () => {
     snowGeometry.setAttribute('position', new THREE.BufferAttribute(snowPositions, 3).setUsage(THREE.DynamicDrawUsage));
     
     const snowMaterial = new THREE.PointsMaterial({
-      size: 0.3,
-      color: 0xffffff,
+      size: 0.34,
+      color: 0xf0b35a,
       transparent: true,
       opacity: 0.8,
       blending: THREE.AdditiveBlending,
@@ -394,9 +358,94 @@ const GestureTree: React.FC = () => {
     const DAMPING = 0.90;
     const BROWN_MOTION = 0.03;
     
+    const themeNames = ['生日暖金', '奶油', '莓果夜'];
+    const applyTheme = (index: number) => {
+      if (!particlesRef.current) return;
+      const palette = [
+        [0xf2ebe0, 0xf0b35a, 0xff8a3d, 0xe07a78],
+        [0xf2ebe0, 0xf6e7c1, 0xf0b35a],
+        [0xe07a78, 0x9a3d55, 0xf0b35a],
+      ][index] || [];
+      const colors = particlesRef.current.geometry.attributes.color.array as Float32Array;
+      const tint = new THREE.Color();
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        tint.set(palette[i % palette.length]);
+        colors[i * 3] = tint.r;
+        colors[i * 3 + 1] = tint.g;
+        colors[i * 3 + 2] = tint.b;
+      }
+      particlesRef.current.geometry.attributes.color.needsUpdate = true;
+    };
+
+    const spawnFireworks = () => {
+      if (!sceneRef.current) return;
+      const scene = sceneRef.current;
+      const hues = [0xf0b35a, 0xff8a3d, 0xf2ebe0, 0xe07a78];
+      const origin = new THREE.Vector3((Math.random() - 0.5) * 12, 4 + Math.random() * 6, 0);
+      const count = narrow ? 120 : 220;
+      const positions = new Float32Array(count * 3);
+      const velocities = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        positions[i * 3] = origin.x;
+        positions[i * 3 + 1] = origin.y;
+        positions[i * 3 + 2] = origin.z;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const speed = 0.25 + Math.random() * 0.55;
+        velocities[i * 3] = Math.sin(phi) * Math.cos(theta) * speed;
+        velocities[i * 3 + 1] = Math.sin(phi) * Math.sin(theta) * speed;
+        velocities[i * 3 + 2] = Math.cos(phi) * speed;
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const points = new THREE.Points(
+        geo,
+        new THREE.PointsMaterial({
+          color: hues[Math.floor(Math.random() * hues.length)],
+          size: 0.45,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      );
+      scene.add(points);
+      fireworksRef.current.push({
+        particles: points,
+        velocities,
+        age: 0,
+        lifetime: 2.4,
+        active: true,
+      });
+    };
+
     const animate = () => {
         animationFrameId = requestAnimationFrame(animate);
       timeRef.current += 0.016;
+
+      const command = commandRef.current;
+      if (command) {
+        commandRef.current = null;
+        if (command === 'gather') {
+          manualModeRef.current = 'gather';
+          isPinchingRef.current = true;
+          pinchStrengthRef.current = 1;
+          setInteractionState('PINCHING');
+        } else if (command === 'scatter') {
+          manualModeRef.current = 'scatter';
+          isPinchingRef.current = false;
+          pinchStrengthRef.current = 0;
+          setInteractionState('IDLE');
+        } else if (command === 'theme') {
+          const next = (colorThemeRef.current + 1) % themeNames.length;
+          colorThemeRef.current = next;
+          applyTheme(next);
+          setCurrentTheme(themeNames[next]);
+        } else if (command === 'petals') {
+          if (snowParticlesRef.current) snowParticlesRef.current.visible = !snowParticlesRef.current.visible;
+        } else if (command === 'fire') {
+          spawnFireworks();
+        }
+      }
 
       if (!rendererRef.current || !composerRef.current) return;
 
@@ -586,15 +635,20 @@ const GestureTree: React.FC = () => {
 
     const handleResize = () => {
       if (!cameraRef.current || !rendererRef.current || !composerRef.current) return;
-        cameraRef.current.aspect = window.innerWidth / window.innerHeight;
-        cameraRef.current.updateProjectionMatrix();
-        rendererRef.current.setSize(window.innerWidth, window.innerHeight);
+      const isPortrait = window.innerHeight > window.innerWidth;
+      cameraRef.current.aspect = window.innerWidth / window.innerHeight;
+      cameraRef.current.fov = isPortrait ? 68 : 60;
+      cameraRef.current.position.z = isPortrait ? 46 : 35;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(window.innerWidth, window.innerHeight);
       composerRef.current.setSize(window.innerWidth, window.innerHeight);
     };
     window.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', handleResize);
 
     return () => {
         window.removeEventListener('resize', handleResize);
+        window.visualViewport?.removeEventListener('resize', handleResize);
         cancelAnimationFrame(animationFrameId);
         if (rendererRef.current) {
              const domEl = rendererRef.current.domElement;
@@ -653,7 +707,7 @@ const GestureTree: React.FC = () => {
 
             handsInstance.setOptions({
                 maxNumHands: 1,
-                modelComplexity: 1,
+                modelComplexity: window.matchMedia('(max-width: 768px)').matches ? 0 : 1,
                 minDetectionConfidence: 0.5,
                 minTrackingConfidence: 0.5,
             });
@@ -707,38 +761,36 @@ const GestureTree: React.FC = () => {
               const newTheme = (oldTheme + 1) % 3;
               colorThemeRef.current = newTheme;
 
-              const themeNames = ['经典圣诞', '冰雪奇缘', '梦幻粉紫'];
+              const themeNames = ['生日暖金', '奶油', '莓果夜'];
               setCurrentTheme(themeNames[newTheme]);
 
               if (particlesRef.current) {
                 const colors = particlesRef.current.geometry.attributes.color.array as Float32Array;
-                const colorGold = new THREE.Color(0xFFD700);
-                const colorWhite = new THREE.Color(0xFFFFFF);
-                const colorRed = new THREE.Color(0xFF6B6B);
-                const colorGreen = new THREE.Color(0x4ECDC4);
-                const colorBlue = new THREE.Color(0x4169E1);
-                const colorSilver = new THREE.Color(0xC0C0C0);
-                const colorPink = new THREE.Color(0xFF69B4);
-                const colorPurple = new THREE.Color(0x9370DB);
+                const cream = new THREE.Color(0xf2ebe0);
+                const gold = new THREE.Color(0xf0b35a);
+                const ember = new THREE.Color(0xff8a3d);
+                const rose = new THREE.Color(0xe07a78);
+                const champagne = new THREE.Color(0xf6e7c1);
+                const berry = new THREE.Color(0x9a3d55);
 
                 for (let i = 0; i < PARTICLE_COUNT; i++) {
                   const i3 = i * 3;
                   const rand = Math.random();
-                  let tempColor = new THREE.Color();
+                  const tempColor = new THREE.Color();
 
                   if (newTheme === 0) {
-                    if (rand > 0.7) tempColor.copy(colorWhite).multiplyScalar(1.3);
-                    else if (rand > 0.4) tempColor.copy(colorGold).multiplyScalar(1.5);
-                    else if (rand > 0.25) tempColor.copy(colorRed).multiplyScalar(1.2);
-                    else tempColor.copy(colorGreen);
+                    if (rand > 0.7) tempColor.copy(cream);
+                    else if (rand > 0.4) tempColor.copy(gold).multiplyScalar(1.35);
+                    else if (rand > 0.2) tempColor.copy(ember).multiplyScalar(1.2);
+                    else tempColor.copy(rose);
                   } else if (newTheme === 1) {
-                    if (rand > 0.6) tempColor.copy(colorWhite).multiplyScalar(1.4);
-                    else if (rand > 0.3) tempColor.copy(colorBlue).multiplyScalar(1.5);
-                    else tempColor.copy(colorSilver).multiplyScalar(1.3);
+                    if (rand > 0.55) tempColor.copy(cream).multiplyScalar(1.2);
+                    else if (rand > 0.25) tempColor.copy(champagne).multiplyScalar(1.25);
+                    else tempColor.copy(gold).multiplyScalar(1.3);
                   } else {
-                    if (rand > 0.6) tempColor.copy(colorWhite).multiplyScalar(1.4);
-                    else if (rand > 0.3) tempColor.copy(colorPink).multiplyScalar(1.5);
-                    else tempColor.copy(colorPurple).multiplyScalar(1.3);
+                    if (rand > 0.6) tempColor.copy(rose).multiplyScalar(1.25);
+                    else if (rand > 0.3) tempColor.copy(berry).multiplyScalar(1.35);
+                    else tempColor.copy(gold).multiplyScalar(1.3);
                   }
 
                   colors[i3] = tempColor.r;
@@ -752,7 +804,7 @@ const GestureTree: React.FC = () => {
             }
 
             if (isTwoFingers && !wasTwoFingersRef.current && !isSnowingRef.current) {
-              // 2 fingers: 飘雪
+              // 2 fingers: 撒花
               wasTwoFingersRef.current = true;
               isSnowingRef.current = true;
 
@@ -871,6 +923,7 @@ const GestureTree: React.FC = () => {
 
             // Fist gesture for tree control
             if (isFist) {
+              manualModeRef.current = 'gesture';
               const strength = fingersCurled / 4.0;
               gsap.to(pinchStrengthRef, {
                 current: strength,
@@ -895,6 +948,14 @@ const GestureTree: React.FC = () => {
                         isPinchingRef.current = false;
                         setInteractionState('IDLE');
                     }
+                } else if (manualModeRef.current === 'gather') {
+                  isPinchingRef.current = true;
+                  pinchStrengthRef.current = 1;
+                  setInteractionState('PINCHING');
+                } else if (manualModeRef.current === 'scatter') {
+                  isPinchingRef.current = false;
+                  pinchStrengthRef.current = 0;
+                  setInteractionState('IDLE');
                 } else {
             // No hands
             gsap.to(pinchStrengthRef, {
@@ -909,14 +970,16 @@ const GestureTree: React.FC = () => {
 
             if (videoRef.current) {
           const CameraClass = getCamera();
+          const phone = window.matchMedia('(max-width: 768px)').matches;
           cameraInstance = new CameraClass(videoRef.current, {
                     onFrame: async () => {
                         if (handsInstance && videoRef.current) {
                             await handsInstance.send({ image: videoRef.current });
                         }
                     },
-                    width: 640,
-            height: 480,
+                    width: phone ? 480 : 640,
+                    height: phone ? 360 : 480,
+                    facingMode: 'user',
                 });
                 await cameraInstance.start();
                 if (isMounted) setCameraStatus('ACTIVE');
@@ -944,20 +1007,22 @@ const GestureTree: React.FC = () => {
       <div ref={containerRef} className="absolute inset-0 z-0 overflow-hidden" />
       <video ref={videoRef} className="hidden" playsInline muted />
 
-      <div className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none p-6 flex flex-col justify-between">
-        <div className="flex justify-between items-start w-full">
-            <div className="bg-black/60 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-xl">
-                <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600">
-                    Gesture Christmas Tree
+      <div className="absolute inset-0 z-10 flex flex-col justify-between p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none sm:p-6">
+        <div className="flex justify-between items-start gap-2 w-full">
+            <div className="max-w-[68%] bg-black/55 backdrop-blur-md p-3 rounded-xl border border-white/10 sm:max-w-none sm:p-4">
+                <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-100 via-amber-300 to-orange-400 sm:text-3xl">
+                    生日快乐
                 </h1>
-                <div className="mt-2 text-sm text-gray-300 font-mono">
+                <p className="mt-1 text-[11px] tracking-[0.28em] text-amber-100/80 sm:text-xs sm:tracking-[0.35em]">十月十六</p>
+                <p className="mt-2 text-xs text-gray-300 sm:hidden">握拳聚拢，张开散开</p>
+                <div className="mt-2 hidden text-sm text-gray-300 font-mono sm:block">
                     <div className="flex items-center gap-2">
                 <span className="text-xl">✊</span>
-                <span>握拳形成圣诞树并旋转</span>
+                <span>握拳聚成蛋糕并旋转</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                         <span className="text-xl">🖐️</span>
-                <span>张开手爆炸散开</span>
+                <span>张开手散成星尘</span>
               </div>
               <div className="mt-3 pt-2 border-t border-white/10">
                 <div className="text-xs text-gray-400 mb-1">手指数量：</div>
@@ -967,7 +1032,7 @@ const GestureTree: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xl">✌️</span>
-                  <span>2根手指飘雪</span>
+                  <span>2根手指撒花</span>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xl">🤟</span>
@@ -977,16 +1042,16 @@ const GestureTree: React.FC = () => {
                 </div>
             </div>
 
-          <div className="flex flex-col gap-2 items-end">
+          <div className="flex shrink-0 flex-col gap-2 items-end">
             <div
               className={`
-                flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md font-bold text-xs tracking-wider shadow-lg
+                flex items-center gap-2 px-3 py-1.5 rounded-full border backdrop-blur-md font-bold text-[10px] tracking-wider shadow-lg sm:px-4 sm:py-2 sm:text-xs
                 ${cameraStatus === 'ACTIVE' ? 'border-green-500/30 bg-green-900/30 text-green-400' : ''}
                 ${cameraStatus === 'LOADING' ? 'border-blue-500/30 bg-blue-900/30 text-blue-400' : ''}
                 ${cameraStatus === 'ERROR' ? 'border-red-500/30 bg-red-900/30 text-red-400' : ''}
               `}
             >
-                <span className={`flex h-3 w-3 relative`}>
+                <span className={`flex h-2.5 w-2.5 relative sm:h-3 sm:w-3`}>
                 <span
                   className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                     cameraStatus === 'ACTIVE'
@@ -997,7 +1062,7 @@ const GestureTree: React.FC = () => {
                   }`}
                 ></span>
                 <span
-                  className={`relative inline-flex rounded-full h-3 w-3 ${
+                  className={`relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 ${
                     cameraStatus === 'ACTIVE'
                       ? 'bg-green-500'
                       : cameraStatus === 'LOADING'
@@ -1007,40 +1072,48 @@ const GestureTree: React.FC = () => {
                 ></span>
                 </span>
               {cameraStatus === 'LOADING'
-                ? 'INITIALIZING VISION...'
+                ? '打开中'
                 : cameraStatus === 'ACTIVE'
-                ? 'VISION ACTIVE'
-                : 'VISION FAILED'}
+                ? '摄像头'
+                : '未授权'}
             </div>
 
-            <div className="px-4 py-2 rounded-full border border-purple-500/30 bg-purple-900/30 backdrop-blur-md font-bold text-xs tracking-wider shadow-lg text-purple-300">
-              当前主题: {currentTheme}
+            <div className="px-3 py-1.5 rounded-full border border-amber-500/30 bg-amber-950/40 backdrop-blur-md font-bold text-[10px] tracking-wider shadow-lg text-amber-200 sm:px-4 sm:py-2 sm:text-xs">
+              {currentTheme}
             </div>
             </div>
         </div>
 
         <div
           className={`
-            absolute top-10 left-1/2 transform -translate-x-1/2
+            absolute left-1/2 top-auto bottom-24 -translate-x-1/2
             transition-all duration-500 ease-out pointer-events-none
-            ${interactionState === 'PINCHING' ? 'scale-110 opacity-100' : 'scale-50 opacity-0'}
+            sm:bottom-auto sm:top-16
+            ${interactionState === 'PINCHING' ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}
         `}
         >
-             <div className="text-6xl font-black text-yellow-100 drop-shadow-[0_0_30px_rgba(255,215,0,0.8)] tracking-tighter mix-blend-screen">
-                 MERRY CHRISTMAS
+             <div className="whitespace-nowrap text-4xl font-black text-yellow-100 drop-shadow-[0_0_30px_rgba(255,215,0,0.8)] tracking-tighter mix-blend-screen sm:text-6xl">
+                 生日快乐
              </div>
         </div>
 
+        <div className="pointer-events-auto flex gap-2 overflow-x-auto pb-1 sm:hidden">
+          <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={() => { commandRef.current = 'gather'; }}>聚成蛋糕</button>
+          <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={() => { commandRef.current = 'scatter'; }}>散成星尘</button>
+          <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={() => { commandRef.current = 'theme'; }}>换颜色</button>
+          <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={() => { commandRef.current = 'petals'; }}>撒花</button>
+          <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={() => { commandRef.current = 'fire'; }}>烟花</button>
+        </div>
+
         {errorMessage && (
-            <div className="self-center bg-red-950/90 text-white p-6 rounded-xl border border-red-500 shadow-2xl pointer-events-auto max-w-md text-center">
-                <div className="text-4xl mb-2">⚠️</div>
-                <h3 className="font-bold text-lg mb-2">System Error</h3>
-                <p className="text-red-200 mb-4">{errorMessage}</p>
+            <div className="self-center bg-red-950/90 text-white p-5 rounded-xl border border-red-500 shadow-2xl pointer-events-auto max-w-md text-center">
+                <h3 className="font-bold text-lg mb-2">摄像头没打开</h3>
+                <p className="text-red-200 mb-4 text-sm">请允许使用前置摄像头。也可以先用底部按钮玩。</p>
                 <button 
                     onClick={() => window.location.reload()}
                     className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded transition-colors w-full font-bold"
                 >
-                    RETRY
+                    再试一次
                 </button>
             </div>
         )}

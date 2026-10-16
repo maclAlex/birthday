@@ -3,7 +3,7 @@ import GestureTree from './components/GestureTree';
 
 const App: React.FC = () => {
   return (
-    <div className="relative w-full h-screen bg-black text-white overflow-hidden">
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-black text-white">
       <GestureTree />
     </div>
   );

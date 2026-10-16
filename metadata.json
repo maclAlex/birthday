@@ -1,6 +1,6 @@
 {
-  "name": "Gesture Christmas Tree",
-  "description": "A 3D interactive particle Christmas tree controlled by hand gestures using MediaPipe and Three.js. Pinch to form the tree, release to disperse.",
+  "name": "Birthday Gesture Cake",
+  "description": "手势控制的 3D 粒子生日蛋糕。握拳聚成蛋糕，张开散成星尘。",
   "requestFramePermissions": [
     "camera"
   ]
