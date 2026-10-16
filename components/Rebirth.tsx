@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 type EndingId = 'wish' | 'song' | 'heard' | 'met' | 'street' | 'flower' | 'bite' | 'share' | 'party' | 'reply';
 
@@ -114,6 +114,8 @@ const LETTERS = [
 const WISHES = ['这一岁，累了有地方歇', '这一岁，高兴时有人接住', '这一岁，记得对自己好一点'];
 
 const LYRICS = ['祝你生日快乐', '祝你生日快乐', '祝你生日快乐', '祝你永远快乐'];
+
+const photoUrl = `${(import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/'}birthday.jpg`;
 
 const TRACKS = [
   { id: 'serenade', name: '生日小夜曲', file: 'a-birthday-serenade.mp3' },
@@ -440,10 +442,18 @@ const Rebirth: React.FC = () => {
   const [musicOn, setMusicOn] = useState(false);
   const [trackId, setTrackId] = useState(TRACKS[0].id);
   const [notice, setNotice] = useState('');
+  const [impatient, setImpatient] = useState(false);
+  const photoRef = useRef<HTMLElement | null>(null);
+  const totalEndings = Object.keys(ENDINGS).length;
+  const showPhoto = impatient || album.length >= totalEndings;
   const musicBlock = useRef(false);
   const holdFrame = useRef(0);
   const playerRef = useRef<ReturnType<typeof createPlayer> | null>(null);
   if (!playerRef.current) playerRef.current = createPlayer();
+
+  useEffect(() => {
+    if (showPhoto) photoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [showPhoto]);
 
   const story = storyId.startsWith('answered:')
     ? answeredStory(Number(storyId.split(':')[1]))
@@ -565,7 +575,7 @@ const Rebirth: React.FC = () => {
         <header className="mb-5 flex items-start justify-between gap-3">
           <div>
             <p className="text-xs tracking-[0.35em] text-[#e7c98a]">十月十六 · 你的生日</p>
-            <p className="mt-2 text-xs text-white/55">第 {steps} 幕 · 相册 {album.length} / {Object.keys(ENDINGS).length}</p>
+            <p className="mt-2 text-xs text-white/55">第 {steps} 幕 · 相册 {album.length} / {totalEndings}</p>
           </div>
           <button
             type="button"
@@ -764,8 +774,26 @@ const Rebirth: React.FC = () => {
           </section>
         )}
 
+        {showPhoto && (
+          <section ref={photoRef} className="scene-card mt-8">
+            <p className="text-xs tracking-[0.28em] text-[#e7c98a]">给你的一张</p>
+            <h2 className="mt-2 font-serif text-3xl">生日快乐</h2>
+            <p className="mt-3 leading-8 text-[#f6efe4]/90">
+              {album.length >= totalEndings ? '十种生日都走过了。这张照片，留给今天的你。' : '先看这张。剩下的生日，还可以慢慢过。'}
+            </p>
+            <img src={photoUrl} alt="生日快乐" className="mt-5 w-full rounded-2xl" />
+          </section>
+        )}
+
         <section className="mt-8">
-          <p className="text-xs tracking-[0.28em] text-white/45">生日相册</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs tracking-[0.28em] text-white/45">生日相册</p>
+            {!showPhoto && (
+              <button type="button" onClick={() => setImpatient(true)} className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#e7c98a]">
+                没耐心，直接看
+              </button>
+            )}
+          </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {(Object.keys(ENDINGS) as EndingId[]).map((id) => (
               <div key={id} className={`rounded-xl border px-3 py-3 text-sm ${album.includes(id) ? 'border-[#e7c98a]/60 text-[#f6efe4]' : 'border-white/10 text-white/35'}`}>
