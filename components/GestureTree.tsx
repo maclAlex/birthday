@@ -8,6 +8,58 @@ import { Landmark, Results } from '../types';
 
 const PARTICLE_COUNT = 5000;
 
+const BIRTHDAY_NOTES: Array<[number, number]> = [
+  [262, 0.32], [262, 0.2], [294, 0.5], [262, 0.5], [349, 0.5], [330, 0.9],
+  [262, 0.32], [262, 0.2], [294, 0.5], [262, 0.5], [392, 0.5], [349, 0.9],
+  [262, 0.32], [262, 0.2], [523, 0.5], [440, 0.5], [349, 0.5], [330, 0.5], [294, 0.9],
+  [466, 0.32], [466, 0.2], [440, 0.5], [349, 0.5], [392, 0.5], [349, 1.1],
+];
+
+function createBirthdayPlayer() {
+  let ctx: AudioContext | null = null;
+  let timer = 0;
+  let playing = false;
+
+  const playNote = (frequency: number, when: number, duration: number) => {
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(0.055, when + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(when);
+    osc.stop(when + duration + 0.02);
+  };
+
+  const loop = () => {
+    if (!playing || !ctx) return;
+    let when = ctx.currentTime + 0.06;
+    BIRTHDAY_NOTES.forEach(([frequency, duration]) => {
+      playNote(frequency, when, duration * 0.9);
+      when += duration;
+    });
+    timer = window.setTimeout(loop, Math.max(300, (when - ctx.currentTime) * 1000 - 60));
+  };
+
+  return {
+    async start() {
+      if (!ctx) ctx = new AudioContext();
+      if (ctx.state === 'suspended') await ctx.resume();
+      if (playing) return;
+      playing = true;
+      loop();
+    },
+    stop() {
+      playing = false;
+      window.clearTimeout(timer);
+    },
+  };
+}
+
 // Custom Shader Material for glowing golden particles
 const particleVertexShader = `
   attribute float size;
@@ -79,6 +131,21 @@ const GestureTree: React.FC = () => {
   const [interactionState, setInteractionState] = useState<'IDLE' | 'PINCHING'>('IDLE');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<string>('生日暖金');
+  const [musicOn, setMusicOn] = useState(false);
+  const playerRef = useRef<ReturnType<typeof createBirthdayPlayer> | null>(null);
+  if (!playerRef.current) playerRef.current = createBirthdayPlayer();
+
+  const toggleMusic = async () => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (musicOn) {
+      player.stop();
+      setMusicOn(false);
+      return;
+    }
+    await player.start();
+    setMusicOn(true);
+  };
 
   // Logic Refs
   const isPinchingRef = useRef(false);
@@ -1081,6 +1148,17 @@ const GestureTree: React.FC = () => {
             <div className="px-3 py-1.5 rounded-full border border-amber-500/30 bg-amber-950/40 backdrop-blur-md font-bold text-[10px] tracking-wider shadow-lg text-amber-200 sm:px-4 sm:py-2 sm:text-xs">
               {currentTheme}
             </div>
+            <button
+              type="button"
+              onClick={toggleMusic}
+              className={`pointer-events-auto rounded-full border px-3 py-1.5 text-[10px] font-bold tracking-wider backdrop-blur-md sm:px-4 sm:py-2 sm:text-xs ${
+                musicOn
+                  ? 'border-amber-300 bg-amber-300 text-stone-900'
+                  : 'border-white/20 bg-black/60 text-amber-100'
+              }`}
+            >
+              {musicOn ? '关闭音乐' : '背景音乐'}
+            </button>
             </div>
         </div>
 
@@ -1103,6 +1181,7 @@ const GestureTree: React.FC = () => {
           <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={() => { commandRef.current = 'theme'; }}>换颜色</button>
           <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={() => { commandRef.current = 'petals'; }}>撒花</button>
           <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={() => { commandRef.current = 'fire'; }}>烟花</button>
+          <button type="button" className="shrink-0 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs" onClick={toggleMusic}>{musicOn ? '关闭音乐' : '背景音乐'}</button>
         </div>
 
         {errorMessage && (
