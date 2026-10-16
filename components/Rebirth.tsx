@@ -443,17 +443,18 @@ const Rebirth: React.FC = () => {
   const [trackId, setTrackId] = useState(TRACKS[0].id);
   const [notice, setNotice] = useState('');
   const [impatient, setImpatient] = useState(false);
-  const photoRef = useRef<HTMLElement | null>(null);
+  const [photoHidden, setPhotoHidden] = useState(false);
   const totalEndings = Object.keys(ENDINGS).length;
-  const showPhoto = impatient || album.length >= totalEndings;
+  const unlocked = album.length >= totalEndings;
+  const showPhoto = (unlocked || impatient) && !photoHidden;
   const musicBlock = useRef(false);
   const holdFrame = useRef(0);
   const playerRef = useRef<ReturnType<typeof createPlayer> | null>(null);
   if (!playerRef.current) playerRef.current = createPlayer();
 
   useEffect(() => {
-    if (showPhoto) photoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [showPhoto]);
+    if (unlocked) setPhotoHidden(false);
+  }, [unlocked]);
 
   const story = storyId.startsWith('answered:')
     ? answeredStory(Number(storyId.split(':')[1]))
@@ -775,24 +776,35 @@ const Rebirth: React.FC = () => {
         )}
 
         {showPhoto && (
-          <section ref={photoRef} className="scene-card mt-8">
-            <p className="text-xs tracking-[0.28em] text-[#e7c98a]">给你的一张</p>
-            <h2 className="mt-2 font-serif text-3xl">生日快乐</h2>
-            <p className="mt-3 leading-8 text-[#f6efe4]/90">
-              {album.length >= totalEndings ? '十种生日都走过了。这张照片，留给今天的你。' : '先看这张。剩下的生日，还可以慢慢过。'}
-            </p>
-            <img src={photoUrl} alt="生日快乐" className="mt-5 w-full rounded-2xl" />
-          </section>
+          <div className="fixed inset-0 z-20 overflow-y-auto bg-[#0c1418]">
+            <div className="mx-auto flex min-h-[100dvh] w-full max-w-xl flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))]">
+              <p className="text-xs tracking-[0.28em] text-[#e7c98a]">给你的一张</p>
+              <h2 className="mt-2 font-serif text-4xl">生日快乐</h2>
+              <p className="mt-3 leading-8 text-[#f6efe4]/90">
+                {unlocked ? '十种生日都走过了。这张照片，留给今天的你。' : '先看这张。剩下的生日，还可以慢慢过。'}
+              </p>
+              <img src={photoUrl} alt="生日快乐" className="mt-5 w-full rounded-2xl" />
+              <button
+                type="button"
+                onClick={() => { setPhotoHidden(true); setImpatient(false); }}
+                className="mt-6 rounded-2xl bg-[#e7c98a] px-4 py-4 text-[#1b140c]"
+              >
+                先把照片收起来
+              </button>
+            </div>
+          </div>
         )}
 
         <section className="mt-8">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs tracking-[0.28em] text-white/45">生日相册</p>
-            {!showPhoto && (
-              <button type="button" onClick={() => setImpatient(true)} className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#e7c98a]">
-                没耐心，直接看
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => { setImpatient(true); setPhotoHidden(false); }}
+              className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#e7c98a]"
+            >
+              没耐心，直接看
+            </button>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {(Object.keys(ENDINGS) as EndingId[]).map((id) => (
