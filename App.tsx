@@ -1,12 +1,8 @@
 import React from 'react';
-import GestureTree from './components/GestureTree';
+import Rebirth from './components/Rebirth';
 
 const App: React.FC = () => {
-  return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-black text-white">
-      <GestureTree />
-    </div>
-  );
+  return <Rebirth />;
 };
 
 export default App;
