@@ -1,236 +1,69 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-type Choice = { text: string; to: string };
-type Scene = {
-  id: string;
-  time: string;
-  title: string;
-  lines: string[];
-  art: string;
-  choices?: Choice[];
-  ending?: string;
-};
+type EndingId = 'wish' | 'song' | 'bite' | 'share' | 'party' | 'reply';
 
-const SCENES: Record<string, Scene> = {
-  wake: {
-    id: 'wake',
-    time: '十月十六 · 生日清晨',
-    title: '这一岁，从你睁眼开始',
-    art: 'dawn',
-    lines: [
-      '日历上圈着你的生日。蜡烛还没点，蛋糕还没切，但今天已经是你的了。',
-      '怎么过都可以。每条路最后都会把生日快乐送到你面前。',
-    ],
-    choices: [
-      { text: '先为自己点一支蜡烛', to: 'bed' },
-      { text: '出门去取生日蛋糕', to: 'street' },
-      { text: '把生日告诉在乎的人', to: 'message' },
-    ],
-  },
-  bed: {
-    id: 'bed',
-    time: '生日的第一支火',
-    title: '烛火先于所有人到来',
-    art: 'blanket',
-    lines: [
-      '你划亮火柴。小小的火苗站住了，房间里的影子都软下来。',
-      '没有人唱，也没有人催。这支蜡烛只为你亮着。',
-    ],
-    choices: [
-      { text: '闭上眼，许一个很小的愿', to: 'noodle' },
-      { text: '先把生日歌放出来', to: 'song' },
-    ],
-  },
-  noodle: {
-    id: 'noodle',
-    time: '许愿',
-    title: '愿望说得很轻',
+const ENDINGS: Record<EndingId, { title: string; lines: string[]; art: string; line: string }> = {
+  wish: {
+    title: '愿望只说给自己',
     art: 'kitchen',
     lines: [
-      '你没有求很大的事。只求这一岁被好好对待，也被自己好好对待。',
-      '吹气的时候火灭了，烟往上走。你笑了一下，像是愿望已经听见。',
+      '你没有说出很大的事。只希望这一岁，累的时候有处可歇，高兴的时候有人接住。',
+      '烛火灭了。烟轻轻上升，像把这句话带走。房间还是暖的。',
     ],
-    ending: '生日快乐。第一支蜡烛，被你自己吹灭了。',
+    line: '生日快乐。第一支火，是你自己点的，也是你自己吹灭的。',
   },
   song: {
-    id: 'song',
-    time: '生日歌',
-    title: '歌先替大家唱给你',
+    title: '生日歌先唱给你自己',
     art: 'room',
     lines: [
-      '生日快乐的旋律响起来。你跟着哼，走到「祝你生日快乐」时声音清楚了一点。',
-      '唱完，蜡烛还在。你对着它点头，像收下了这首只属于今天的歌。',
+      '旋律一出来，你跟着哼。唱到「祝你生日快乐」时，声音比刚才稳。',
+      '没有听众也没关系。这首歌今天的听众就是你。',
     ],
-    ending: '这一岁的第一首歌，是唱给你的生日。',
+    line: '生日快乐。这一岁的第一首歌，是唱给你的。',
   },
-  street: {
-    id: 'street',
-    time: '去取蛋糕',
-    title: '路上已经有人在祝你',
-    art: 'street',
-    lines: [
-      '店员看见订单上的日期，笑着说了句生日快乐。盒子被系上金色的绳。',
-      '你抱着它往回走，蛋糕的甜味隔着纸盒也能闻见。',
-    ],
-    choices: [
-      { text: '看看蛋糕上写了什么', to: 'shop' },
-      { text: '再配上蜡烛和一束花', to: 'water' },
-    ],
-  },
-  shop: {
-    id: 'shop',
-    time: '蛋糕盒',
-    title: '奶油上写着生日快乐',
+  bite: {
+    title: '第一口留给自己',
     art: 'shop',
     lines: [
-      '字写得不算工整，但每个字都在。你用手指隔着盒子描了一遍。',
+      '奶油上的「生日快乐」被你小心地避开，又忍不住先尝了靠近字的那一角。',
+      '甜得刚刚好。你对着空盘子笑了一下，像是收到了自己的礼物。',
     ],
-    choices: [
-      { text: '今晚自己切第一刀', to: 'give' },
-      { text: '留给要一起过生日的人', to: 'vase' },
-    ],
+    line: '生日快乐。蛋糕的第一口，被你认真吃掉了。',
   },
-  give: {
-    id: 'give',
-    time: '一个人的生日桌',
-    title: '第一刀切得很稳',
-    art: 'kitchen',
-    lines: [
-      '你把蜡烛插上，又吹灭。奶油沾到指尖，甜得刚刚好。',
-      '没有掌声也没关系。这一刀是你给自己的生日礼。',
-    ],
-    ending: '生日快乐。蛋糕的第一口，是你自己尝的。',
-  },
-  vase: {
-    id: 'vase',
-    time: '等人来',
-    title: '蛋糕在灯下等你们',
+  share: {
+    title: '这一刀一起落下',
     art: 'cafe',
     lines: [
-      '门开的时候，有人先喊了生日快乐，然后才放下礼物。',
-      '你们一起切。刀落下时，所有人都在笑，奶油被分到每只盘子里。',
+      '人到齐之前，蛋糕就在灯下等着。门开时，先听见的是生日快乐，然后才是脚步。',
+      '你们手叠着手切下去。盘子传了一圈，每个人的嘴里都是同一块甜。',
     ],
-    ending: '生日快乐。这一刀，是大家一起落下的。',
+    line: '生日快乐。这一刀，是大家一起帮你落下的。',
   },
-  water: {
-    id: 'water',
-    time: '花和蜡烛',
-    title: '生日要有光，也要有颜色',
-    art: 'flower',
-    lines: [
-      '你挑了细细的蜡烛，又挑了一小束开得正好的花。店员把它们和蛋糕放在一起。',
-    ],
-    choices: [
-      { text: '把花插在蛋糕旁边', to: 'shore' },
-      { text: '把花送给第一个祝你生日快乐的人', to: 'ride' },
-    ],
-  },
-  shore: {
-    id: 'shore',
-    time: '生日桌',
-    title: '花靠着蛋糕',
-    art: 'vase',
-    lines: [
-      '蜡烛点亮后，花瓣也被照暖了。你许愿，吹气，火光灭成一缕烟。',
-      '房间里又甜又安静。这一桌是为你摆的。',
-    ],
-    ending: '生日快乐。光灭了，花还在。',
-  },
-  ride: {
-    id: 'ride',
-    time: '第一句祝福',
-    title: '花交到那个人手里',
-    art: 'flower',
-    lines: [
-      '对方刚说完生日快乐，你就把花递过去。两个人都愣了一下，然后一起笑。',
-      '蛋糕还在你臂弯里。祝福和花，在同一分钟到达。',
-    ],
-    ending: '生日快乐。你把收到的祝愿，又还了一点出去。',
-  },
-  message: {
-    id: 'message',
-    time: '生日消息',
-    title: '你告诉他们：今天是我的生日',
-    art: 'phone',
-    lines: [
-      '消息发出去不久，屏幕就开始一下一下地亮。生日快乐四个字，从不同的人那里赶来。',
-    ],
-    choices: [
-      { text: '把大家约来一起吹蜡烛', to: 'wait' },
-      { text: '先自己把生日准备好', to: 'pocket' },
-    ],
-  },
-  wait: {
-    id: 'wait',
-    time: '回复涌过来',
-    title: '每条消息都在叫你的名字',
-    art: 'phone',
-    lines: [
-      '有人问几点切蛋糕，有人说已经在路上，有人只发了一长串生日祝福。',
-    ],
-    choices: [
-      { text: '今晚一起吹蜡烛', to: 'meet' },
-      { text: '一条条回过去，把感谢说完', to: 'chat' },
-    ],
-  },
-  meet: {
-    id: 'meet',
-    time: '生日夜',
-    title: '蜡烛被大家围住',
+  party: {
+    title: '蜡烛被很多人围住',
     art: 'cafe',
     lines: [
-      '灯关掉的那一秒，只剩烛火。生日歌有点不齐，但每个声音都在。',
-      '你吹灭它们。黑暗里先响起掌声，然后灯又亮了，蛋糕被切开。',
+      '灯关掉的时候，只剩你面前那几支火。生日歌有点不齐，但每一声都在叫你。',
+      '你吹灭它们。掌声先于灯光回来。有人把最大的那块推到你面前。',
     ],
-    ending: '生日快乐。这一岁，是被很多人一起点亮的。',
+    line: '生日快乐。这一岁，是被一圈人一起点亮的。',
   },
-  chat: {
-    id: 'chat',
-    time: '对话框',
+  reply: {
     title: '感谢比蜡烛先点完',
     art: 'phone',
     lines: [
-      '你一条条回。有的回复很短，有的多说了几句近况。每发出去一句，生日就更完整一点。',
-      '屏幕安静下来时，你知道这些祝福都会留到明天。',
+      '你一封封回。有的只写「收到啦」，有的多说了几句近况。每发出去一句，生日就更完整一点。',
+      '屏幕安静下来时，那些祝你生日快乐的话还亮着，像一小排没有灭的灯。',
     ],
-    ending: '生日快乐。人没有到齐，祝愿已经到齐了。',
-  },
-  pocket: {
-    id: 'pocket',
-    time: '为自己过生日',
-    title: '手机先放到一边',
-    art: 'park',
-    lines: [
-      '祝福可以晚一点再看。你想先给这个生日留一个只有自己知道的仪式。',
-    ],
-    choices: [
-      { text: '写一张只给自己的生日卡片', to: 'book' },
-      { text: '戴上生日的心情，去走一圈', to: 'lap' },
-    ],
-  },
-  book: {
-    id: 'book',
-    time: '生日卡片',
-    title: '字是写给新的一岁的',
-    art: 'book',
-    lines: [
-      '你写下：生日快乐。后面又加了一句，只有你看得懂。',
-      '卡片夹进今天的日期里。明年翻到这一页，还会遇见它。',
-    ],
-    ending: '生日快乐。你给自己留了一张不会过期的祝词。',
-  },
-  lap: {
-    id: 'lap',
-    time: '生日游行',
-    title: '这一圈，只为今天',
-    art: 'park',
-    lines: [
-      '你走得很慢，像在游行。风把头发吹起来，你在心里给自己唱了一小段生日歌。',
-      '回到门口时，蛋糕还在桌上等你。仪式可以很小，但必须是你的。',
-    ],
-    ending: '生日快乐。你用自己的脚步，把这一岁迎了进来。',
+    line: '生日快乐。人没有全部到场，祝愿已经到齐了。',
   },
 };
+
+const LETTERS = [
+  { from: '一直记得你的人', text: '生日快乐。不用变得更耀眼，今天这样就已经很好。' },
+  { from: '会一起笑的人', text: '蛋糕我可以晚点到，祝福不能晚点。生日快乐。' },
+  { from: '突然想起你的人', text: '看到日期才发觉，今天是你的生日。愿你被温柔对待。' },
+];
 
 const BIRTHDAY_NOTES: Array<[number, number]> = [
   [262, 0.32], [262, 0.2], [294, 0.5], [262, 0.5], [349, 0.5], [330, 0.9],
@@ -281,23 +114,58 @@ function createPlayer() {
   };
 }
 
+type Phase = 'wake' | 'candles' | 'cake' | 'letters' | 'ending';
+
+const ALBUM_KEY = 'birthday-endings';
+
+function loadAlbum(): EndingId[] {
+  try {
+    const raw = localStorage.getItem(ALBUM_KEY);
+    const parsed = raw ? (JSON.parse(raw) as EndingId[]) : [];
+    return parsed.filter((id) => id in ENDINGS);
+  } catch {
+    return [];
+  }
+}
+
 const Rebirth: React.FC = () => {
-  const [id, setId] = useState('wake');
-  const [path, setPath] = useState<string[]>([]);
+  const [phase, setPhase] = useState<Phase>('wake');
+  const [lit, setLit] = useState(0);
+  const [blown, setBlown] = useState(false);
+  const [hold, setHold] = useState(0);
+  const [cakeStep, setCakeStep] = useState(0);
+  const [opened, setOpened] = useState<number[]>([]);
+  const [ending, setEnding] = useState<EndingId | null>(null);
+  const [album, setAlbum] = useState<EndingId[]>([]);
   const [musicOn, setMusicOn] = useState(false);
+  const [notice, setNotice] = useState('新收集到一种生日');
+  const holdFrame = useRef(0);
   const playerRef = useRef<ReturnType<typeof createPlayer> | null>(null);
   if (!playerRef.current) playerRef.current = createPlayer();
-  const scene = SCENES[id];
-  const endings = useMemo(() => Object.values(SCENES).filter((item) => item.ending).length, []);
 
-  const choose = (choice: Choice) => {
-    setPath((prev) => [...prev, choice.text]);
-    setId(choice.to);
+  useEffect(() => {
+    setAlbum(loadAlbum());
+  }, []);
+
+  const finish = (id: EndingId) => {
+    setEnding(id);
+    setPhase('ending');
+    setAlbum((prev) => {
+      const next = prev.includes(id) ? prev : [...prev, id];
+      localStorage.setItem(ALBUM_KEY, JSON.stringify(next));
+      setNotice(prev.includes(id) ? '这种生日你已经收进相册' : '新收集到一种生日');
+      return next;
+    });
   };
 
   const restart = () => {
-    setPath([]);
-    setId('wake');
+    setPhase('wake');
+    setLit(0);
+    setBlown(false);
+    setHold(0);
+    setCakeStep(0);
+    setOpened([]);
+    setEnding(null);
   };
 
   const toggleMusic = async () => {
@@ -312,14 +180,42 @@ const Rebirth: React.FC = () => {
     setMusicOn(true);
   };
 
+  const startHold = () => {
+    const begun = performance.now();
+    const step = (now: number) => {
+      const ratio = Math.min(1, (now - begun) / 900);
+      setHold(ratio);
+      if (ratio >= 1) {
+        setBlown(true);
+        return;
+      }
+      holdFrame.current = requestAnimationFrame(step);
+    };
+    holdFrame.current = requestAnimationFrame(step);
+  };
+
+  const cancelHold = () => {
+    cancelAnimationFrame(holdFrame.current);
+    if (!blown) setHold(0);
+  };
+
+  const art =
+    phase === 'wake' ? 'dawn' :
+    phase === 'candles' ? 'blanket' :
+    phase === 'cake' ? 'shop' :
+    phase === 'letters' ? 'phone' :
+    ENDINGS[ending || 'wish'].art;
+
+  const total = Object.keys(ENDINGS).length;
+
   return (
     <div className="min-h-[100dvh] overflow-y-auto bg-[#0c1418] text-[#f3eadc]">
-      <div className={`scene scene-${scene.art}`} aria-hidden="true" />
+      <div className={`scene scene-${art}`} aria-hidden="true" />
       <main className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-xl flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))]">
         <header className="mb-6 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs tracking-[0.35em] text-[#e7c98a]">{scene.time}</p>
-            <p className="mt-2 text-xs text-white/55">第 {path.length + 1} 幕 · 共 {endings} 种生日</p>
+            <p className="text-xs tracking-[0.35em] text-[#e7c98a]">十月十六 · 你的生日</p>
+            <p className="mt-2 text-xs text-white/55">相册 {album.length} / {total}</p>
           </div>
           <button
             type="button"
@@ -332,79 +228,175 @@ const Rebirth: React.FC = () => {
           </button>
         </header>
 
-        <article key={scene.id} className="scene-card">
-          <h1 className="font-serif text-4xl leading-tight tracking-wide sm:text-5xl">{scene.title}</h1>
-          {scene.lines.map((line) => (
-            <p key={line} className="mt-4 text-base leading-8 text-[#f6efe4]/90">
-              {line}
-            </p>
-          ))}
-          {scene.ending && (
-            <p className="mt-6 border-t border-[#e7c98a]/40 pt-4 text-lg text-[#e7c98a]">{scene.ending}</p>
-          )}
-        </article>
+        {phase === 'wake' && (
+          <section className="scene-card">
+            <h1 className="font-serif text-4xl leading-tight sm:text-5xl">这一岁，想怎么开始</h1>
+            <p className="mt-4 leading-8 text-[#f6efe4]/90">蜡烛、蛋糕、还有那些想对你说生日快乐的人，都在等你先走一步。选哪条都可以，最后都会被好好庆祝。</p>
+            <div className="mt-6 grid gap-3">
+              <Choice text="在家里，先点起蜡烛" onClick={() => setPhase('candles')} />
+              <Choice text="出门，把生日蛋糕抱回来" onClick={() => setPhase('cake')} />
+              <Choice text="先拆开别人写下的祝福" onClick={() => setPhase('letters')} />
+            </div>
+          </section>
+        )}
 
-        <div className="mt-6 grid gap-3">
-          {scene.choices?.map((choice) => (
-            <button
-              key={choice.text}
-              type="button"
-              onClick={() => choose(choice)}
-              className="rounded-2xl border border-white/15 bg-black/35 px-4 py-4 text-left text-base leading-7 backdrop-blur-md transition active:scale-[0.99] hover:border-[#e7c98a]/70"
-            >
-              {choice.text}
-            </button>
-          ))}
-          {scene.ending && (
-            <button
-              type="button"
-              onClick={restart}
-              className="rounded-2xl bg-[#e7c98a] px-4 py-4 text-base text-[#1b140c]"
-            >
+        {phase === 'candles' && (
+          <section className="scene-card">
+            <h1 className="font-serif text-4xl leading-tight">三支只为你亮的蜡烛</h1>
+            <p className="mt-4 leading-8">点一下，亮一支。三支都亮了，再按住把它们吹灭。火会灭，暖还在。</p>
+            <div className="mt-6 flex justify-center gap-6">
+              {[0, 1, 2].map((index) => (
+                <button
+                  key={index}
+                  type="button"
+                  disabled={blown || index !== lit}
+                  onClick={() => setLit((value) => Math.min(3, value + 1))}
+                  className="flex flex-col items-center gap-2 disabled:opacity-100"
+                >
+                  <span className={`flame ${index < lit && !blown ? 'is-on' : ''} ${blown ? 'is-out' : ''}`} />
+                  <span className="h-10 w-2 rounded-sm bg-[#f6edd9]" />
+                </button>
+              ))}
+            </div>
+            {lit < 3 && !blown && <p className="mt-4 text-center text-sm text-[#e7c98a]">还差 {3 - lit} 支</p>}
+            {lit === 3 && !blown && (
+              <button
+                type="button"
+                onPointerDown={startHold}
+                onPointerUp={cancelHold}
+                onPointerCancel={cancelHold}
+                className="relative mt-6 w-full overflow-hidden rounded-2xl border border-[#e7c98a]/50 px-4 py-4"
+              >
+                <span className="absolute inset-y-0 left-0 bg-[#e7c98a]/30" style={{ width: `${hold * 100}%` }} />
+                <span className="relative">按住，吹灭蜡烛</span>
+              </button>
+            )}
+            {blown && (
+              <div className="mt-6 grid gap-3">
+                <p className="text-center text-[#e7c98a]">灭了。这一岁的光留在亮处。</p>
+                <Choice text="把愿望轻轻说完" onClick={() => finish('wish')} />
+                <Choice text="跟着生日歌唱完一遍" onClick={() => finish('song')} />
+              </div>
+            )}
+          </section>
+        )}
+
+        {phase === 'cake' && (
+          <section className="scene-card">
+            <h1 className="font-serif text-4xl leading-tight">把生日蛋糕准备好</h1>
+            <p className="mt-4 leading-8">店员已经说了生日快乐。接下来由你亲手完成它，每一步都可以慢慢来。</p>
+            <ol className="mt-6 grid gap-3">
+              {['打开盒子', '看清奶油上的字', '插上蜡烛', '切下第一角'].map((label, index) => (
+                <li key={label}>
+                  <button
+                    type="button"
+                    disabled={cakeStep !== index}
+                    onClick={() => setCakeStep(index + 1)}
+                    className={`w-full rounded-2xl border px-4 py-4 text-left ${
+                      cakeStep > index
+                        ? 'border-[#e7c98a] bg-[#e7c98a]/15'
+                        : 'border-white/15 bg-black/35 disabled:opacity-50'
+                    }`}
+                  >
+                    {cakeStep > index ? '完成 · ' : ''}{label}
+                    {index === 1 && cakeStep > 1 && <span className="mt-2 block text-sm text-[#e7c98a]">上面写着：生日快乐</span>}
+                  </button>
+                </li>
+              ))}
+            </ol>
+            {cakeStep >= 4 && (
+              <div className="mt-6 grid gap-3">
+                <Choice text="第一口自己尝" onClick={() => finish('bite')} />
+                <Choice text="等会一起笑的人来切" onClick={() => finish('share')} />
+              </div>
+            )}
+          </section>
+        )}
+
+        {phase === 'letters' && (
+          <section className="scene-card">
+            <h1 className="font-serif text-4xl leading-tight">三封还没拆的祝福</h1>
+            <p className="mt-4 leading-8">点开它们。每一封都是有人记得，今天是你的生日。</p>
+            <div className="mt-6 grid gap-3">
+              {LETTERS.map((letter, index) => {
+                const isOpen = opened.includes(index);
+                return (
+                  <button
+                    key={letter.from}
+                    type="button"
+                    onClick={() => setOpened((prev) => (prev.includes(index) ? prev : [...prev, index]))}
+                    className="rounded-2xl border border-white/15 bg-black/35 px-4 py-4 text-left"
+                  >
+                    <span className="text-xs tracking-[0.2em] text-[#e7c98a]">{letter.from}</span>
+                    <span className="mt-2 block leading-7">{isOpen ? letter.text : '点开这封生日快乐'}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {opened.length === LETTERS.length && (
+              <div className="mt-6 grid gap-3">
+                <Choice text="请他们今晚来吹蜡烛" onClick={() => finish('party')} />
+                <Choice text="一封封把感谢回过去" onClick={() => finish('reply')} />
+              </div>
+            )}
+          </section>
+        )}
+
+        {phase === 'ending' && ending && (
+          <section className="scene-card">
+            <p className="text-xs tracking-[0.28em] text-[#e7c98a]">{notice}</p>
+            <h1 className="mt-3 font-serif text-4xl leading-tight">{ENDINGS[ending].title}</h1>
+            {ENDINGS[ending].lines.map((line) => (
+              <p key={line} className="mt-4 leading-8">{line}</p>
+            ))}
+            <p className="mt-6 border-t border-[#e7c98a]/40 pt-4 text-lg text-[#e7c98a]">{ENDINGS[ending].line}</p>
+            <button type="button" onClick={restart} className="mt-6 w-full rounded-2xl bg-[#e7c98a] px-4 py-4 text-[#1b140c]">
               再过一次这个生日
             </button>
-          )}
-        </div>
-
-        {path.length > 0 && (
-          <p className="mt-6 text-xs leading-6 text-white/45">你走过：{path.join(' → ')}</p>
+          </section>
         )}
+
+        <section className="mt-8">
+          <p className="text-xs tracking-[0.28em] text-white/45">生日相册</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(Object.keys(ENDINGS) as EndingId[]).map((id) => (
+              <div key={id} className={`rounded-xl border px-3 py-3 text-sm ${album.includes(id) ? 'border-[#e7c98a]/60 text-[#f6efe4]' : 'border-white/10 text-white/35'}`}>
+                {album.includes(id) ? ENDINGS[id].title : '还没走过'}
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
       <style>{`
         .font-serif { font-family: "Songti SC", "Noto Serif SC", "STSong", serif; }
-        .scene {
-          position: fixed;
-          inset: 0;
-          pointer-events: none;
-        }
-        .scene::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(180deg, rgba(12,20,24,0.15), rgba(12,20,24,0.72) 55%, #0c1418);
-        }
-        .scene-dawn { background: radial-gradient(circle at 50% 20%, #f0c27a, #c45c4a 28%, #102028 70%); }
-        .scene-blanket { background: radial-gradient(circle at 30% 40%, #f4e1c1, #8c5a3c 40%, #1a1412 75%); }
-        .scene-kitchen { background: radial-gradient(circle at 70% 30%, #ffe0a3, #e07a3d 35%, #24160f 72%); }
+        .scene { position: fixed; inset: 0; pointer-events: none; }
+        .scene::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12,20,24,0.12), rgba(12,20,24,0.78) 58%, #0c1418); }
+        .scene-dawn { background: radial-gradient(circle at 50% 18%, #f0c27a, #c45c4a 30%, #102028 72%); }
+        .scene-blanket { background: radial-gradient(circle at 50% 30%, #ffd7a1, #8c4b32 42%, #1a1412 76%); }
+        .scene-kitchen, .scene-shop { background: radial-gradient(circle at 70% 28%, #ffe0a3, #e07a3d 36%, #24160f 74%); }
         .scene-room { background: radial-gradient(circle at 40% 30%, #f7d7e8, #6d4b7a 40%, #15141c 75%); }
-        .scene-street { background: radial-gradient(circle at 50% 10%, #fff1c9, #7ea0b8 32%, #1b2830 70%); }
-        .scene-shop { background: radial-gradient(circle at 60% 40%, #ffd0c2, #c45c6a 38%, #241418 74%); }
-        .scene-flower { background: radial-gradient(circle at 50% 45%, #ffe7a8, #e07a78 36%, #1c2420 72%); }
-        .scene-vase { background: radial-gradient(circle at 50% 60%, #f6edd9, #8aa37b 42%, #152018 76%); }
-        .scene-train { background: linear-gradient(90deg, #d7e4ef 0 18%, #24343f 18% 100%); }
-        .scene-shore { background: radial-gradient(circle at 50% 70%, #f2efe4, #6aa7c1 34%, #102028 70%); }
-        .scene-phone { background: radial-gradient(circle at 50% 40%, #f7f1e4, #355c74 36%, #101820 74%); }
         .scene-cafe { background: radial-gradient(circle at 40% 35%, #f6d7a8, #a8643a 40%, #23160f 74%); }
-        .scene-park { background: radial-gradient(circle at 50% 20%, #fff4d2, #6f8f62 36%, #142018 72%); }
-        .scene-book { background: radial-gradient(circle at 35% 40%, #f4e7cf, #8d6244 42%, #1a1410 76%); }
+        .scene-phone { background: radial-gradient(circle at 50% 40%, #f7f1e4, #8a5a3a 34%, #101820 74%); }
         .scene-card { animation: rise 0.45s ease; }
-        @keyframes rise {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: none; }
-        }
+        .flame { width: 18px; height: 28px; border-radius: 50% 50% 45% 45%; background: transparent; }
+        .flame.is-on { background: radial-gradient(circle at 50% 70%, #fff6dc, #ffb15a 40%, #ff5d32 72%, transparent 74%); filter: drop-shadow(0 0 8px #ffb15a); }
+        .flame.is-out { opacity: 0.15; background: #888; }
+        @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
       `}</style>
     </div>
   );
 };
+
+function Choice({ text, onClick }: { text: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-white/15 bg-black/35 px-4 py-4 text-left text-base leading-7 backdrop-blur-md hover:border-[#e7c98a]/70"
+    >
+      {text}
+    </button>
+  );
+}
 
 export default Rebirth;
