@@ -115,57 +115,17 @@ const WISHES = ['这一岁，累了有地方歇', '这一岁，高兴时有人�
 
 const LYRICS = ['祝你生日快乐', '祝你生日快乐', '祝你生日快乐', '祝你永远快乐'];
 
-const BIRTHDAY_NOTES: Array<[number, number]> = [
-  [262, 0.32], [262, 0.2], [294, 0.5], [262, 0.5], [349, 0.5], [330, 0.9],
-  [262, 0.32], [262, 0.2], [294, 0.5], [262, 0.5], [392, 0.5], [349, 0.9],
-  [262, 0.32], [262, 0.2], [523, 0.5], [440, 0.5], [349, 0.5], [330, 0.5], [294, 0.9],
-  [466, 0.32], [466, 0.2], [440, 0.5], [349, 0.5], [392, 0.5], [349, 1.1],
-];
-
 function createPlayer() {
-  let ctx: AudioContext | null = null;
-  let timer = 0;
-  let playing = false;
-  const playNote = (frequency: number, when: number, duration: number) => {
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const low = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    low.type = 'sine';
-    osc.frequency.value = frequency;
-    low.frequency.value = frequency / 2;
-    gain.gain.setValueAtTime(0.0001, when);
-    gain.gain.exponentialRampToValueAtTime(0.045, when + 0.04);
-    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
-    osc.connect(gain);
-    low.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(when);
-    low.start(when);
-    osc.stop(when + duration + 0.02);
-    low.stop(when + duration + 0.02);
-  };
-  const loop = () => {
-    if (!playing || !ctx) return;
-    let when = ctx.currentTime + 0.06;
-    BIRTHDAY_NOTES.forEach(([frequency, duration]) => {
-      playNote(frequency, when, duration * 0.92);
-      when += duration;
-    });
-    timer = window.setTimeout(loop, Math.max(300, (when - ctx.currentTime) * 1000 - 80));
-  };
+  const base = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/';
+  const audio = new Audio(`${base}music-box-birthday.mp3`);
+  audio.loop = true;
+  audio.volume = 0.45;
   return {
     async start() {
-      if (!ctx) ctx = new AudioContext();
-      if (ctx.state === 'suspended') await ctx.resume();
-      if (playing) return;
-      playing = true;
-      loop();
+      await audio.play();
     },
     stop() {
-      playing = false;
-      window.clearTimeout(timer);
+      audio.pause();
     },
   };
 }
